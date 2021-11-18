@@ -78,41 +78,20 @@ def yaw2quaternion(yaw: float) -> Quaternion:
 
 
 class DemoDataset(DatasetTemplate):
-    def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None, ext='.npy'):
+    def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None):
         # Parent initialization
         super().__init__(dataset_cfg=dataset_cfg, class_names=class_names, training=training, root_path=None, logger=logger)
-        self.ext = ext
-
-    def __len__(self):
-        return len(self.sample_file_list)
-
-    def __getitem__(self, index):
-        if self.ext == '.bin':
-            points = np.fromfile(self.sample_file_list[index], dtype=np.float32).reshape(-1, 4)
-        elif self.ext == '.npy':
-            points = np.load(self.sample_file_list[index])
-        else:
-            raise NotImplementedError
-
-        input_dict = {
-            'points': points,
-            'frame_id': index,
-        }
-
-        data_dict = self.prepare_data(data_dict=input_dict)
-        return data_dict
 
 
 class ProcessROS:
     def __init__(self, cfg_file, ckpt):
         self.cfg_file = cfg_file
         self.ckpt = ckpt
-        self.ext = '.npy'
 
     def ReadConfig(self):
         cfg_from_yaml_file(self.cfg_file, cfg)
         self.logger = common_utils.create_logger()
-        self.demo_dataset = DemoDataset(dataset_cfg=cfg.DATA_CONFIG, class_names=cfg.CLASS_NAMES, training=False, ext=self.ext, logger=self.logger)
+        self.demo_dataset = DemoDataset(dataset_cfg=cfg.DATA_CONFIG, class_names=cfg.CLASS_NAMES, training=False, logger=self.logger)
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.net = build_network(model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=self.demo_dataset)
@@ -147,7 +126,12 @@ class ProcessROS:
 
         return scores, boxes_lidar, types
 
+
 def LiDARSubscriber(data):
+    global img_que
+    global sub_flag
+    sub_flag = True
+
     #t_t = time.time()
     arr_bbox = BoundingBoxArray()
 
@@ -189,16 +173,35 @@ def LiDARSubscriber(data):
         arr_bbox.boxes = []
         pub_arr_bbox.publish(arr_bbox)
     repub_points_raw.publish(data)
-    repub_image_raw.publish(re_image_raw)
+    rospy.loginfo('lidar: %d', data.header.stamp.secs)
+    lidar_step = data.header.stamp.secs
+     
+    if (img_que != []):
+        while True:
+            img_data = img_que.pop(0)
+            if (lidar_step - img_data.header.stamp.secs == 0):
+                break
+        rospy.loginfo('image: %d', img_data.header.stamp.secs)
+        repub_image_raw.publish(img_data)
 
-def RePubImage(data):
-    global re_image_raw
-    re_image_raw = Image()
-    re_image_raw = data
-    #repub_image_raw.publish(data)
+def ImageSubscriber(data):
+    global img_que
+    global sub_flag
+
+    img_que.append(data)
+
+    # if sub_flag:
+    #     img_que.append(data)
+    #     sub_flag = False
+    # else:
+    #     pass
 
 if __name__=='__main__':
     global proc
+    global img_que
+    global sub_flag
+    img_que = []
+    sub_flag = False
 
     cfg_file = '/home/msjun-msi/catkin_ws/src/3D-LiDAR-Detection/scripts/cfgs/kitti_models/voxel_rcnn_car.yaml'
     ckpt = '/home/msjun-msi/catkin_ws/src/3D-LiDAR-Detection/scripts/voxel_rcnn_car_84.54.pth'
@@ -208,7 +211,7 @@ if __name__=='__main__':
     proc.ReadConfig()
 
     rospy.Subscriber('/points_raw', PointCloud2, LiDARSubscriber)
-    rospy.Subscriber('/image_raw', Image, RePubImage)
+    rospy.Subscriber('/image_raw', Image, ImageSubscriber)
     pub_arr_bbox = rospy.Publisher('/arr_bbox', BoundingBoxArray, queue_size=1)
     repub_points_raw = rospy.Publisher('/re_points_raw', PointCloud2, queue_size=1)
     repub_image_raw = rospy.Publisher('/re_image_raw', Image, queue_size=1)

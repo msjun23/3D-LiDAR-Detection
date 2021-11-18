@@ -173,15 +173,16 @@ def LiDARSubscriber(data):
         arr_bbox.boxes = []
         pub_arr_bbox.publish(arr_bbox)
     repub_points_raw.publish(data)
-    rospy.loginfo('lidar: %d', data.header.stamp.secs)
+    #rospy.loginfo('lidar: %d', data.header.stamp.secs)
     lidar_step = data.header.stamp.secs
      
     if (img_que != []):
         while True:
+            # For sync published image & lidar
             img_data = img_que.pop(0)
             if (lidar_step - img_data.header.stamp.secs == 0):
                 break
-        rospy.loginfo('image: %d', img_data.header.stamp.secs)
+        #rospy.loginfo('image: %d', img_data.header.stamp.secs)
         repub_image_raw.publish(img_data)
 
 def ImageSubscriber(data):
@@ -189,12 +190,6 @@ def ImageSubscriber(data):
     global sub_flag
 
     img_que.append(data)
-
-    # if sub_flag:
-    #     img_que.append(data)
-    #     sub_flag = False
-    # else:
-    #     pass
 
 if __name__=='__main__':
     global proc

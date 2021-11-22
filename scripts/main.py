@@ -14,6 +14,7 @@ import mayavi.mlab as mlab
 import moviepy.editor as mpy
 import torch
 import time
+import struct
 
 from pcdet.config import cfg, cfg_from_yaml_file
 from pcdet.datasets import DatasetTemplate
@@ -22,7 +23,7 @@ from pcdet.utils import common_utils
 from visual_utils import visualize_utils as V
 
 from std_msgs.msg import String
-from sensor_msgs.msg import PointCloud2
+from sensor_msgs.msg import PointCloud2, PointField
 from sensor_msgs.msg import Image
 from jsk_recognition_msgs.msg import BoundingBox, BoundingBoxArray
 
@@ -136,12 +137,18 @@ def LiDARSubscriber(data):
     arr_bbox = BoundingBoxArray()
 
     # PointCloud2 -> points: [x, y, z, intensity(=0)]
-    temp_list = []
+    point_list = []
     for point in pc2.read_points(data, skip_nans=True, field_names=('x', 'y', 'z')):
-        temp_list.append([point[0], point[1], point[2], 0])
-    points = np.array(temp_list, dtype=np.float32)
+        point_list.append([point[0], point[1], point[2], 0])
+    points = np.array(point_list)
 
+    # Prediction
     scores, box_lidar, types_ = proc.run(points)
+
+    # Coloring point cloud
+    background_rgb = float(0xff0000)
+    bbox_rgb = float(0xffffff)
+    points[:, 3] = background_rgb
 
     if scores.size != 0:
         for i in range(scores.size):
@@ -149,19 +156,32 @@ def LiDARSubscriber(data):
             bbox.header.frame_id = data.header.frame_id
             bbox.header.stamp = rospy.Time.now()
             q = yaw2quaternion(float(box_lidar[i][6]))
+            bbox_pose_x = float(box_lidar[i][0])
+            bbox_pose_y = float(box_lidar[i][1])
+            bbox_pose_z = float(box_lidar[i][2])
+            bbox_dim_x = float(box_lidar[i][3])
+            bbox_dim_y = float(box_lidar[i][4])
+            bbox_dim_z = float(box_lidar[i][5])
+
             bbox.pose.orientation.x = q[1]
             bbox.pose.orientation.y = q[2]
             bbox.pose.orientation.z = q[3]
             bbox.pose.orientation.w = q[0]           
-            bbox.pose.position.x = float(box_lidar[i][0])
-            bbox.pose.position.y = float(box_lidar[i][1])
-            bbox.pose.position.z = float(box_lidar[i][2])
-            bbox.dimensions.x = float(box_lidar[i][3])
-            bbox.dimensions.y = float(box_lidar[i][4])
-            bbox.dimensions.z = float(box_lidar[i][5])
+            bbox.pose.position.x = bbox_pose_x
+            bbox.pose.position.y = bbox_pose_y
+            bbox.pose.position.z = bbox_pose_z
+            bbox.dimensions.x = bbox_dim_x
+            bbox.dimensions.y = bbox_dim_y
+            bbox.dimensions.z = bbox_dim_z
             bbox.value = scores[i]
             bbox.label = int(types_[i])
             arr_bbox.boxes.append(bbox)
+
+            for point_ in range(len(points)):
+                if (bbox_pose_x - bbox_dim_x/2 <= points[point_][0] and points[point_][0] <= bbox_pose_x + bbox_dim_x/2) and \
+                    (bbox_pose_y - bbox_dim_y/2 <= points[point_][1] and points[point_][1] <= bbox_pose_y + bbox_dim_y/2) and \
+                    (bbox_pose_z - bbox_dim_z/2 <= points[point_][2] and points[point_][2] <= bbox_pose_z + bbox_dim_z/2):
+                    points[point_][3] = bbox_rgb
     
     #print("total callback time: ", time.time() - t_t)
     arr_bbox.header.frame_id = data.header.frame_id
@@ -172,17 +192,25 @@ def LiDARSubscriber(data):
     else:
         arr_bbox.boxes = []
         pub_arr_bbox.publish(arr_bbox)
-    repub_points_raw.publish(data)
-    #rospy.loginfo('lidar: %d', data.header.stamp.secs)
-    lidar_step = data.header.stamp.secs
-     
+
+    # header, fields, points
+    fields = [PointField('x', 0, PointField.FLOAT32, 1), 
+            PointField('y', 4, PointField.FLOAT32, 1), 
+            PointField('z', 8, PointField.FLOAT32, 1), 
+            PointField('rgb', 12, PointField.FLOAT32, 1), 
+            #PointField('rgba', 12, PointField.FLOAT32, 1)
+            ]
+    re_data = pc2.create_cloud(header=data.header, fields=fields, points=points)
+
+    #repub_points_raw.publish(data)
+    repub_points_raw.publish(re_data)
+    lidar_stamp_secs = data.header.stamp.secs
     if (img_que != []):
         while True:
             # For sync published image & lidar
             img_data = img_que.pop(0)
-            if (lidar_step - img_data.header.stamp.secs == 0):
+            if (lidar_stamp_secs - img_data.header.stamp.secs == 0):
                 break
-        #rospy.loginfo('image: %d', img_data.header.stamp.secs)
         repub_image_raw.publish(img_data)
 
 def ImageSubscriber(data):

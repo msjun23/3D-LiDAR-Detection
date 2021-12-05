@@ -14,7 +14,7 @@
 
 ---
 
-For object detecting, we use camera generally. But in my sight, camera have many limitation. Representatively, light is one of the biggest problems in image processing. But some companies are try to complete vision task only with camera, for example, Tesla.(dogecoin forever, go to the mars) Whatever, now, I face two routes. One is fight to overcome the limitation of camera(like Tesla), and the other one is use another sensor. Last year, I tried object detection with camera. In this project, so I decided trying other route and aimed object detecting with 3D-LiDAR.
+For object detecting, we use camera generally. But in my sight, camera have many limitation. Representatively, light is one of the biggest problems in image processing. But some companies are try to complete vision task only with camera, for example, Tesla.(dogecoin forever, go to the Mars) Whatever, now, I face two routes. One is fight to overcome the limitation of camera(like Tesla), and the other one is use another sensor. Last year, I tried object detection with camera. In this project, so I decided trying other route and aimed object detecting with 3D-LiDAR.
 
 An open source, [OpenPCDet](https://github.com/open-mmlab/OpenPCDet) supply basic 3D-LiDAR object detection code with pre-trained models. I used this source and for input data, used sensor data from [SVL Simulator](https://www.svlsimulator.com/).
 

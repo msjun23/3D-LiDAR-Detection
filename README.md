@@ -1,3 +1,40 @@
+# 3D-LiDAR Detection
+
+**Personal project at Baram, Academic group**</br>
+**Division of Robotics, Kwangwoon University at Seoul, Korea**</br>
+**Term:** 09.2021. ~ 11.2021.</br>
+**Intro:** 3D-LiDAR Detection with SVL Simulator
+
+**OS:** Ubuntu 18.04</br>
+**GPU spec:** RTX2070(laptop)</br>
+**Programming Language:** Python</br>
+**Development Environment:** ROS Melodic
+
+\* **Origin source:** This project is based on [OpenPCDet](https://github.com/open-mmlab/OpenPCDet)
+
+---
+
+For object detecting, we use camera generally. But in my sight, camera have many limitation. Representatively, light is one of the biggest problems in image processing. But some companies are try to complete vision task only with camera, for example, Tesla.(dogecoin forever, go to the mars) Whatever, now, I face two routes. One is fight to overcome the limitation of camera(like Tesla), and the other one is use another sensor. Last year, I tried object detection with camera. In this project, so I decided trying other route and aimed object detecting with 3D-LiDAR.
+
+An open source, [OpenPCDet](https://github.com/open-mmlab/OpenPCDet) supply basic 3D-LiDAR object detection code with pre-trained models. I used this source and for input data, used sensor data from [SVL Simulator](https://www.svlsimulator.com/).
+
+Every task is worked on ROS Melodic environment. SVL Simulator supply ros bridge, so can adapt simulation to ROS easily. In ROS environment, get 3D-LiDAR data first, and put them to detection network. Now, with ROS visulazation tool rviz, we can check results.
+
+---
+
+![slide1](/result/slide/slide1.PNG) | ![slide2](/result/slide/slide2.PNG)
+---|---|
+![slide3](/result/slide/slide3.PNG) | ![slide4](/result/slide/slide4.PNG)
+
+![video1](/result/3D_detection_final1.gif)
+![video2](/result/3D_detection_final2.gif)
+
+---
+
+My epilogue about this project is [here]()
+
+---
+
 <img src="docs/open_mmlab.png" align="right" width="30%">
 
 # OpenPCDet
